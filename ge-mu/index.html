@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>実力試し</title>
+<style>
+  body{
+    font-family: sans-serif;
+    text-align: center;
+    padding: 40px;
+  }
+  .hint{
+    background: #f5f5f5;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: none; /* 最初は非表示 */
+  }
+  #content{
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- ヒント（2回ミスで表示） -->
+<div id="hint" class="hint">
+  🔑 ヒント：さくのスマホのパスワード
+</div>
+
+<!-- ログイン -->
+ <h1>
+    恭平の念（実力）
+ </h1>
+<div id="login">
+  <input type="password" id="pw" placeholder="パスワード">
+  <button onclick="check()">入る</button>
+  <p id="msg" style="color:red"></p>
+</div>
+
+<!-- 中身 -->
+<div id="content">
+  <h1>持ち物</h1>
+  <p>・現金</p>
+  <p>・携帯電話・スマートフォン</p>
+  <p>・常備薬（胃腸薬・頭痛薬・風邪薬・酔い止め薬・ピルなど）</p>
+  <p>・下着／靴下／着替え（予備も）</p>
+  <p>・化粧品・洗面用具（持ってきたい人だけ、家にはある）</p>
+  <p>・家の鍵（持ってきたい人だけ）</p>
+  <p>・ゲームや本（マイクラのカセット2個）</p>
+  <p>・上着（さむいよ、一応）</p>
+  <p>・出歩く用のかばん・水筒・帽子（持ってきたい人だけ）</p>
+
+  <h1>時間</h1>
+  <p>
+    24日の1時から25日の11時まで<br>
+    （帰りたい人・用事がある人は帰ってOK）
+  </p>
+</div>
+
+<!-- 正解音 -->
+<audio id="successSound" src="key_unlock.wav"></audio>
+
+<script>
+
+  const PASSWORD = "122639";
+  let missCount = 0;
+
+  const sound = document.getElementById("successSound");
+  sound.volume = 0.4; // 音量（0.0〜1.0）
+
+  function check(){
+    const input = document.getElementById("pw").value;
+
+    if(input === PASSWORD){
+      sound.currentTime = 0; // 先頭から再生
+      sound.play().catch(()=>{}); // 念のため
+
+      document.getElementById("hint").style.display = "none";
+      document.getElementById("login").style.display = "none";
+      document.getElementById("content").style.display = "block";
+    }else{
+      missCount++;
+      document.getElementById("msg").textContent = "ちがうよ！";
+
+      if(missCount >= 2){
+        document.getElementById("hint").style.display = "block";
+      }
+    }
+  }
+
+</script>
+
+</body>
+</html>
