@@ -10,7 +10,7 @@
     padding: 40px;
   }
   .hint{
-    background: #f5f5f5;
+    background: #1a1414;
     padding: 10px;
     border-radius: 8px;
     margin-bottom: 20px;
@@ -43,7 +43,7 @@
   <h1>持ち物</h1>
   <p>・現金</p>
   <p>・携帯電話・スマートフォン</p>
-  <p>・常備薬（胃腸薬・頭痛薬・風邪薬・酔い止め薬・ピルなど）</p>
+  <p>・常備薬（胃腸薬・頭痛薬・風邪薬・酔い止め薬・）</p>
   <p>・下着／靴下／着替え（予備も）</p>
   <p>・化粧品・洗面用具（持ってきたい人だけ、家にはある）</p>
   <p>・家の鍵（持ってきたい人だけ）</p>
@@ -67,7 +67,7 @@
   let missCount = 0;
 
   const sound = document.getElementById("successSound");
-  sound.volume = 1; // 音量（0.0〜1.0）
+  sound.volume = 0.4; // 音量（0.0〜1.0）
 
   function check(){
     const input = document.getElementById("pw").value;
@@ -93,4 +93,3 @@
 
 </body>
 </html>
-
