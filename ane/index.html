@@ -6,14 +6,13 @@
 
 <title>羽菜専用 カラーチェッカー</title>
 
-<!-- PWA / Webアプリ設定 -->
+<!-- PWA -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#f6b3c1">
 
-<!-- iPhone用 -->
-<link rel="apple-touch-icon" href="icon-192.png">
+<!-- iPhone -->
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
 
 <style>
 body{
@@ -52,15 +51,13 @@ body{
   box-shadow:0 8px 20px rgba(0,0,0,.1);
 }
 
-input{
-  width:100%;
-}
+input{ width:100%; }
 
 canvas{
-  width:85%;
+  width:80%;
   display:block;
   margin:12px auto 0;
-  border-radius:16px;
+  border-radius:18px;
 }
 
 .result{
@@ -95,8 +92,8 @@ canvas{
 <div class="app">
 
   <div class="header">
-    <h1>羽菜カラーチェッカー</h1>
-    <p>Happy Birthday 羽菜 🎂</p>
+    <h1>羽菜専用 カラーチェッカー</h1>
+    <p>🎂 Happy Birthday 羽菜 🎁</p>
   </div>
 
   <div class="card">
@@ -113,37 +110,45 @@ canvas{
 </div>
 
 <script>
+/* ===== コピック色 ===== */
 const copics={
-  E00:[255,230,200],R000:[255,220,220],RV21:[255,190,200],
-  R35:[200,50,70],E93:[120,60,40],YR31:[255,200,120],
-  Y02:[255,240,120],B02:[60,150,220],E31:[200,170,140],
-  BV31:[190,170,220],BG23:[80,200,190],V15:[160,60,160],
-  B000:[220,240,255],R02:[255,140,140],E29:[90,50,30],
-  G05:[90,180,90],YG67:[90,140,60],E35:[140,90,60],
+  E00:[255,230,200], R000:[255,220,220], RV21:[255,190,200],
+  R35:[200,50,70], E93:[120,60,40], YR31:[255,200,120],
+  Y02:[255,240,120], B02:[60,150,220], E31:[200,170,140],
+  BV31:[190,170,220], BG23:[80,200,190], V15:[160,60,160],
+  B000:[220,240,255], R02:[255,140,140], E29:[90,50,30],
+  G05:[90,180,90], YG67:[90,140,60], E35:[140,90,60],
   RV06:[180,60,100],
-  "0":[255,255,255]   // カラーレスブレンダー
+  "0":[255,255,255] // カラーレスブレンダー
 };
 
-const ratios=[[1,0],[0.7,0.3],[0.6,0.4]];
+const ratios=[
+  {a:1,b:0},
+  {a:0.7,b:0.3},
+  {a:0.6,b:0.4}
+];
 
 const cv=document.getElementById("cv");
 const ctx=cv.getContext("2d");
 
+/* ===== 画像読み込み ===== */
 document.getElementById("file").onchange=e=>{
   const img=new Image();
   img.onload=()=>{
     cv.width=img.width;
     cv.height=img.height;
     ctx.drawImage(img,0,0);
-  }
+  };
   img.src=URL.createObjectURL(e.target.files[0]);
 };
 
+/* ===== 色取得 ===== */
 cv.onclick=e=>{
   const r=cv.getBoundingClientRect();
   const x=(e.clientX-r.left)*(cv.width/r.width);
   const y=(e.clientY-r.top)*(cv.height/r.height);
   const d=ctx.getImageData(x,y,1,1).data;
+
   document.body.style.background=`rgb(${d[0]},${d[1]},${d[2]})`;
   judge([d[0],d[1],d[2]]);
 };
@@ -152,43 +157,59 @@ function dist(a,b){
   return Math.sqrt((a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2);
 }
 
-function mix(a,b,r1,r2){
+function mix(a,b,ra,rb){
   if(b==="0"){
     return [
-      a[0]+(255-a[0])*r2,
-      a[1]+(255-a[1])*r2,
-      a[2]+(255-a[2])*r2
+      a[0]+(255-a[0])*rb,
+      a[1]+(255-a[1])*rb,
+      a[2]+(255-a[2])*rb
     ];
   }
   return [
-    a[0]*r1+b[0]*r2,
-    a[1]*r1+b[1]*r2,
-    a[2]*r1+b[2]*r2
+    a[0]*ra+b[0]*rb,
+    a[1]*ra+b[1]*rb,
+    a[2]*ra+b[2]*rb
   ];
 }
 
+/* ===== 判定 ===== */
 function judge(t){
   let best={d:9999};
-  const k=Object.keys(copics).filter(c=>c!=="0");
+  const keys=Object.keys(copics).filter(c=>c!=="0");
 
-  k.forEach(c=>{
+  // 単色
+  keys.forEach(c=>{
     const d=dist(t,copics[c]);
     if(d<best.d) best={type:"単色",d,c};
   });
 
-  for(let i=0;i<k.length;i++){
-    for(let j=i+1;j<k.length;j++){
+  // 混色・薄め
+  for(let i=0;i<keys.length;i++){
+    for(let j=i+1;j<keys.length;j++){
       ratios.forEach(r=>{
-        let m=mix(copics[k[i]],copics[k[j]],r[0],r[1]);
+        let m=mix(copics[keys[i]],copics[keys[j]],r.a,r.b);
         let d=dist(t,m);
         if(d<best.d){
-          best={type:"混色",d,c1:k[i],c2:k[j],ratio:`${r[0]*10}:${r[1]*10}`};
+          best={
+            type:"混色",
+            d,
+            c1:keys[i],
+            c2:keys[j],
+            r1:r.a*10,
+            r2:r.b*10
+          };
         }
-        // 0で薄める
-        m=mix(copics[k[i]],"0",r[0],r[1]);
+
+        m=mix(copics[keys[i]],"0",r.a,r.b);
         d=dist(t,m);
         if(d<best.d){
-          best={type:"薄め",d,c1:k[i],ratio:`${r[0]*10}:${r[1]*10}`};
+          best={
+            type:"薄め",
+            d,
+            c1:keys[i],
+            r1:r.a*10,
+            r2:r.b*10
+          };
         }
       });
     }
@@ -201,12 +222,12 @@ function judge(t){
     html=`🖌 単色が一番近い<br><b>${best.c}</b>`;
   }else if(best.type==="薄め"){
     html=`🖌 薄めた方が近い<br>
-    <b>${best.c1}</b> → あとで <b>0</b><br>
-    比率 ${best.ratio}`;
+      先に <b>${best.c1}</b>（${best.r1}）<br>
+      あとで <b>0</b>（${best.r2}）`;
   }else{
     html=`🖌 混色した方が近い<br>
-    ${best.ratio}<br>
-    先に <b>${best.c1}</b> → あとで <b>${best.c2}</b>`;
+      先に <b>${best.c1}</b>（${best.r1}）<br>
+      あとで <b>${best.c2}</b>（${best.r2}）`;
   }
 
   document.getElementById("result").style.display="block";

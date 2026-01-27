@@ -1,7 +1,6 @@
 {
   "name": "羽菜カラーチェッカー",
   "short_name": "羽菜カラー",
-  "start_url": ".",
   "display": "standalone",
   "background_color": "#fff6ec",
   "theme_color": "#f6b3c1",
