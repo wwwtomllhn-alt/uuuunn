@@ -3,14 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
 <title>羽菜専用 カラーチェッカー</title>
+
+<!-- PWA / Webアプリ設定 -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#f6b3c1">
+
+<!-- iPhone用 -->
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 
 <style>
 body{
   margin:0;
   font-family:"Hiragino Maru Gothic ProN",sans-serif;
   background:#fff6ec;
-  transition:background 0.6s ease;
+  transition:background .5s;
 }
 
 .app{
@@ -21,16 +31,15 @@ body{
 
 .header{
   text-align:center;
-  margin-top:10px;
 }
 
 .header h1{
-  font-size:22px;
-  color:#d86c8f;
   margin:6px 0;
+  color:#d86c8f;
 }
 
-.header .sub{
+.header p{
+  margin:0;
   font-size:14px;
   color:#888;
 }
@@ -47,16 +56,14 @@ input{
   width:100%;
 }
 
-
 canvas{
-  width:90%;          /* ← 100% → 90% に */
+  width:85%;
   display:block;
   margin:12px auto 0;
   border-radius:16px;
 }
 
 .result{
-  margin-top:10px;
   text-align:center;
 }
 
@@ -72,7 +79,7 @@ canvas{
   height:100%;
   width:0%;
   background:linear-gradient(90deg,#ff8a80,#f06292);
-  transition:width .6s;
+  transition:width .5s;
 }
 
 .percent{
@@ -80,7 +87,6 @@ canvas{
   color:#d86c8f;
   font-weight:bold;
 }
-
 </style>
 </head>
 
@@ -89,8 +95,8 @@ canvas{
 <div class="app">
 
   <div class="header">
-    <h1>🎨 羽菜専用！ カラーチェッカー</h1>
-    <div class="sub">Happy Birthday 羽菜 🎁</div>
+    <h1>羽菜カラーチェッカー</h1>
+    <p>Happy Birthday 羽菜 🎂</p>
   </div>
 
   <div class="card">
@@ -110,11 +116,12 @@ canvas{
 const copics={
   E00:[255,230,200],R000:[255,220,220],RV21:[255,190,200],
   R35:[200,50,70],E93:[120,60,40],YR31:[255,200,120],
-  Y02:[255,240,120],"W-2":[200,200,200],B02:[60,150,220],
-  E31:[200,170,140],BV31:[190,170,220],BG23:[80,200,190],
-  V15:[160,60,160],B000:[220,240,255],R02:[255,140,140],
-  E29:[90,50,30],G05:[90,180,90],YG67:[90,140,60],
-  E35:[140,90,60],RV06:[180,60,100]
+  Y02:[255,240,120],B02:[60,150,220],E31:[200,170,140],
+  BV31:[190,170,220],BG23:[80,200,190],V15:[160,60,160],
+  B000:[220,240,255],R02:[255,140,140],E29:[90,50,30],
+  G05:[90,180,90],YG67:[90,140,60],E35:[140,90,60],
+  RV06:[180,60,100],
+  "0":[255,255,255]   // カラーレスブレンダー
 };
 
 const ratios=[[1,0],[0.7,0.3],[0.6,0.4]];
@@ -144,13 +151,25 @@ cv.onclick=e=>{
 function dist(a,b){
   return Math.sqrt((a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2);
 }
+
 function mix(a,b,r1,r2){
-  return [a[0]*r1+b[0]*r2,a[1]*r1+b[1]*r2,a[2]*r1+b[2]*r2];
+  if(b==="0"){
+    return [
+      a[0]+(255-a[0])*r2,
+      a[1]+(255-a[1])*r2,
+      a[2]+(255-a[2])*r2
+    ];
+  }
+  return [
+    a[0]*r1+b[0]*r2,
+    a[1]*r1+b[1]*r2,
+    a[2]*r1+b[2]*r2
+  ];
 }
 
 function judge(t){
   let best={d:9999};
-  const k=Object.keys(copics);
+  const k=Object.keys(copics).filter(c=>c!=="0");
 
   k.forEach(c=>{
     const d=dist(t,copics[c]);
@@ -160,10 +179,16 @@ function judge(t){
   for(let i=0;i<k.length;i++){
     for(let j=i+1;j<k.length;j++){
       ratios.forEach(r=>{
-        const m=mix(copics[k[i]],copics[k[j]],r[0],r[1]);
-        const d=dist(t,m);
+        let m=mix(copics[k[i]],copics[k[j]],r[0],r[1]);
+        let d=dist(t,m);
         if(d<best.d){
           best={type:"混色",d,c1:k[i],c2:k[j],ratio:`${r[0]*10}:${r[1]*10}`};
+        }
+        // 0で薄める
+        m=mix(copics[k[i]],"0",r[0],r[1]);
+        d=dist(t,m);
+        if(d<best.d){
+          best={type:"薄め",d,c1:k[i],ratio:`${r[0]*10}:${r[1]*10}`};
         }
       });
     }
@@ -174,11 +199,14 @@ function judge(t){
 
   if(best.type==="単色"){
     html=`🖌 単色が一番近い<br><b>${best.c}</b>`;
+  }else if(best.type==="薄め"){
+    html=`🖌 薄めた方が近い<br>
+    <b>${best.c1}</b> → あとで <b>0</b><br>
+    比率 ${best.ratio}`;
   }else{
     html=`🖌 混色した方が近い<br>
-    比率 ${best.ratio}<br>
-    先に塗る → <b>${best.c1}</b><br>
-    後から塗る → <b>${best.c2}</b>`;
+    ${best.ratio}<br>
+    先に <b>${best.c1}</b> → あとで <b>${best.c2}</b>`;
   }
 
   document.getElementById("result").style.display="block";
