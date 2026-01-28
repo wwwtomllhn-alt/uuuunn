@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>暗号ツール</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
+        textarea { width: 100%; height: 80px; margin-bottom: 10px; display: block; }
+    </style>
+</head>
+<body>
+
+    <h3>1. 日本語を入力（暗号に変換）</h3>
+    <textarea id="textInput" placeholder="ここに日本語を打つと..."></textarea>
+
+    <h3>2. 暗号を入力（日本語に変換）</h3>
+    <textarea id="numberInput" placeholder="ここに数字を打つと..."></textarea>
+
+    <script>
+        const textInput = document.getElementById('textInput');
+        const numberInput = document.getElementById('numberInput');
+
+        // 日本語から数字へ変換
+        textInput.addEventListener('input', () => {
+            const val = textInput.value;
+            const encoded = val.split('').map(char => char.charCodeAt(0)).join(' ');
+            numberInput.value = encoded;
+        });
+
+        // 数字から日本語へ変換
+        numberInput.addEventListener('input', () => {
+            const val = numberInput.value.trim();
+            if (!val) { textInput.value = ''; return; }
+            
+            try {
+                const decoded = val.split(/\s+/).map(num => String.fromCharCode(parseInt(num))).join('');
+                textInput.value = decoded;
+            } catch (e) {
+                textInput.value = "正しい数字を入力してください";
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>寿司団のパクリ</title>
+    <style>
+        body { background: #1a1a1a; color: white; margin: 0; overflow: hidden; font-family: sans-serif; }
+        #game-screen { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; }
+        
+        /* 上部のタイムバー */
+        #header-ui { width: 100%; height: 60px; background: #222; display: flex; align-items: center; padding: 0 20px; box-sizing: border-box; border-bottom: 2px solid #444; }
+        #timer-bar-container { flex-grow: 1; height: 20px; background: #444; border-radius: 10px; margin: 0 20px; overflow: hidden; border: 2px solid #555; }
+        #timer-bar { height: 100%; width: 100%; background: #00ff00; transition: width 0.1s linear; }
+        #score-display { font-size: 24px; font-weight: bold; min-width: 120px; text-align: right; color: #ffcc00; }
+        
+        /* ボーナス・ペナルティ演出 */
+        .effect-text { position: absolute; top: 70px; right: 50%; font-weight: bold; font-size: 24px; animation: fadeUp 0.5s forwards; pointer-events: none; z-index: 10; }
+        @keyframes fadeUp { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-40px); } }
+
+        #lane { position: relative; width: 100%; height: 250px; background: #333; border-top: 4px solid #555; border-bottom: 4px solid #555; overflow: hidden; margin-top: 80px; }
+        .plate { position: absolute; left: -300px; width: 300px; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .word-kanji { font-size: 32px; font-weight: bold; margin-bottom: 10px; }
+        .word-roma { font-size: 22px; color: #888; letter-spacing: 2px; }
+        .typed { color: #ffcc00; text-shadow: 0 0 8px #ffcc00; }
+        
+        #start-screen { position: absolute; z-index: 100; background: rgba(0,0,0,0.9); width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        button { padding: 15px 50px; font-size: 24px; cursor: pointer; background: #ff4444; color: white; border: none; border-radius: 50px; }
+        .miss { animation: shake 0.1s radial; background: rgba(255,0,0,0.2); }
+        @keyframes shake { 0% { transform: translate(2px, 2px); } 50% { transform: translate(-2px, -2px); } 100% { transform: translate(0,0); } }
+    </style>
+</head>
+<body>
+
+<div id="game-screen">
+    <div id="start-screen">
+        <h1 style="color: #ffcc00;">寿司団のパクリ</h1>
+        <p style="color: #aaa;">回復:+0.2s / ミス:-0.5s</p>
+        <button onclick="startGame()">スタート</button>
+    </div>
+
+    <div id="header-ui">
+        <div id="timer-bar-container"><div id="timer-bar"></div></div>
+        <div id="score-display">¥<span id="score">0</span></div>
+    </div>
+
+    <div id="lane"></div>
+</div>
+
+<script>
+    const wordList = [
+        {k:"まぐろ", r:"maguro"}, {k:"いくら", r:"ikura"}, {k:"あじ", r:"aji"},
+        {k:"サーモン", r:"sa-mon"}, {k:"たまご", r:"tamago"}, {k:"うに", r:"uni"}
+    ];
+
+    const MAX_TIME = 30.0; // 初期時間を短めに設定
+    const RECOVERY_TIME = 0.2; // 完食時の回復を0.2秒に（一生終わらないのを防止）
+    const MISS_PENALTY = 0.5;  // ミス時の減少量
+
+    let score = 0, timeLeft = MAX_TIME, isPlaying = false, activePlate = null;
+    
+    function startGame() {
+        document.getElementById('start-screen').style.display = 'none';
+        isPlaying = true; score = 0; timeLeft = MAX_TIME;
+        document.getElementById('lane').innerHTML = '';
+        createPlate();
+        gameLoop();
+    }
+
+    function createPlate() {
+        if (!isPlaying) return;
+        const word = wordList[Math.floor(Math.random() * wordList.length)];
+        const plate = document.createElement('div');
+        plate.className = 'plate';
+        plate.innerHTML = `<div style="font-size:50px">🍣</div><div class="word-kanji">${word.k}</div><div class="word-roma" id="roma-display">${word.r}</div>`;
+        document.getElementById('lane').appendChild(plate);
+        activePlate = { el: plate, word: word.r, index: 0 };
+
+        plate.animate([{ transform: 'translateX(0px)' }, { transform: `translateX(${window.innerWidth + 400}px)` }], { duration: 5000, easing: 'linear' }).onfinish = () => {
+            if (activePlate && activePlate.el === plate) { plate.remove(); createPlate(); }
+        };
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if (!isPlaying || !activePlate || e.key === 'Shift') return;
+        
+        const key = e.key.toLowerCase();
+        let targetChar = activePlate.word[activePlate.index];
+
+        if (key === targetChar || ((targetChar === 'z' || targetChar === 'j') && (key === 'z' || key === 'j'))) {
+            if (key !== targetChar) activePlate.word = activePlate.word.substring(0, activePlate.index) + key + activePlate.word.substring(activePlate.index + 1);
+            activePlate.index++;
+            updateWordDisplay();
+            if (activePlate.index === activePlate.word.length) {
+                score += 100;
+                addTime(RECOVERY_TIME, true);
+                activePlate.el.remove(); activePlate = null;
+                setTimeout(createPlate, 50);
+            }
+        } else {
+            // ミスペナルティ
+            addTime(-MISS_PENALTY, false);
+            document.body.classList.add('miss');
+            setTimeout(() => document.body.classList.remove('miss'), 100);
+        }
+    });
+
+    function addTime(amount, isPlus) {
+        timeLeft = Math.max(0, Math.min(MAX_TIME, timeLeft + amount));
+        const effect = document.createElement('div');
+        effect.className = 'effect-text';
+        effect.style.color = isPlus ? "#00ff00" : "#ff0000";
+        effect.innerText = (amount > 0 ? "+" : "") + amount.toFixed(1) + "s";
+        document.body.appendChild(effect);
+        setTimeout(() => effect.remove(), 500);
+    }
+
+    function updateWordDisplay() {
+        const romaEl = activePlate.el.querySelector('#roma-display');
+        romaEl.innerHTML = `<span class="typed">${activePlate.word.substring(0, activePlate.index)}</span>${activePlate.word.substring(activePlate.index)}`;
+    }
+
+    function gameLoop() {
+        if (!isPlaying) return;
+        timeLeft -= 0.02; // 秒間約1.2秒ペースで減少
+        const percentage = (timeLeft / MAX_TIME) * 100;
+        document.getElementById('timer-bar').style.width = percentage + "%";
+        document.getElementById('timer-bar').style.backgroundColor = percentage < 30 ? "#ff0000" : "#00ff00";
+        document.getElementById('score').innerText = score;
+
+        if (timeLeft <= 0) {
+            isPlaying = false;
+            alert("終了！ ¥" + score);
+            document.getElementById('start-screen').style.display = 'flex';
+        } else {
+            requestAnimationFrame(gameLoop);
+        }
+    }
+</script>
+</body>
+</html>
