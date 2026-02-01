@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<title>羽菜専用 カラーチェッカー</title>
+<title>色鉛筆カラーチェッカー</title>
 
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
@@ -92,8 +92,8 @@ canvas{
 <div class="app">
 
   <div class="header">
-    <h1>カラーチェッカー</h1>
-    <p>🎂 Happy Birthday 羽菜 🎁</p>
+    <h1>色鉛筆カラーチェッカー</h1>
+    <p>色の系統と雰囲気を分析するよ</p>
   </div>
 
   <div class="card">
@@ -110,130 +110,74 @@ canvas{
 </div>
 
 <script>
-/* ===== コピック色 ===== */
-const copics={
-  E00:[255,230,200], R000:[255,220,220], RV21:[255,190,200],
-  R35:[200,50,70], E93:[120,60,40], YR31:[255,200,120],
-  Y02:[255,240,120], B02:[60,150,220], E31:[200,170,140],
-  BV31:[190,170,220], BG23:[80,200,190], V15:[160,60,160],
-  B000:[220,240,255], R02:[255,140,140], E29:[90,50,30],
-  G05:[90,180,90], YG67:[90,140,60], E35:[140,90,60],
-  RV06:[180,60,100],
-  "0":[255,255,255] // カラーレスブレンダー
-};
-
-const ratios=[
-  {a:1,b:0},
-  {a:0.7,b:0.3},
-  {a:0.6,b:0.4}
-];
-
-const cv=document.getElementById("cv");
-const ctx=cv.getContext("2d");
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
 
 /* ===== 画像読み込み ===== */
-document.getElementById("file").onchange=e=>{
-  const img=new Image();
-  img.onload=()=>{
-    cv.width=img.width;
-    cv.height=img.height;
-    ctx.drawImage(img,0,0);
+document.getElementById("file").onchange = e => {
+  const img = new Image();
+  img.onload = () => {
+    cv.width = img.width;
+    cv.height = img.height;
+    ctx.drawImage(img, 0, 0);
   };
-  img.src=URL.createObjectURL(e.target.files[0]);
+  img.src = URL.createObjectURL(e.target.files[0]);
 };
 
-/* ===== 色取得 ===== */
-cv.onclick=e=>{
-  const r=cv.getBoundingClientRect();
-  const x=(e.clientX-r.left)*(cv.width/r.width);
-  const y=(e.clientY-r.top)*(cv.height/r.height);
-  const d=ctx.getImageData(x,y,1,1).data;
+/* ===== キャンバスクリック ===== */
+cv.onclick = e => {
+  const r = cv.getBoundingClientRect();
+  const x = (e.clientX - r.left) * (cv.width / r.width);
+  const y = (e.clientY - r.top) * (cv.height / r.height);
+  const d = ctx.getImageData(x, y, 1, 1).data;
 
-  document.body.style.background=`rgb(${d[0]},${d[1]},${d[2]})`;
-  judge([d[0],d[1],d[2]]);
+  document.body.style.background = `rgb(${d[0]},${d[1]},${d[2]})`;
+  judge([d[0], d[1], d[2]]);
 };
 
-function dist(a,b){
-  return Math.sqrt((a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2);
+/* ===== 色鉛筆向け分析 ===== */
+function analyzeColor([r,g,b]){
+  const max = Math.max(r,g,b);
+  const min = Math.min(r,g,b);
+  const v = max;
+  const s = max === 0 ? 0 : (max - min) / max;
+
+  let hue;
+  if(s < 0.15) hue = "グレー系";
+  else if(max === r && g > b) hue = "オレンジ〜赤";
+  else if(max === r) hue = "赤〜ピンク";
+  else if(max === g && r > b) hue = "黄緑〜緑";
+  else if(max === g) hue = "緑";
+  else if(max === b && r > g) hue = "紫〜青";
+  else hue = "青";
+
+  let bright =
+    v > 220 ? "とても明るい" :
+    v > 180 ? "明るい" :
+    v > 100 ? "ふつう" : "暗い";
+
+  let vivid =
+    s > 0.6 ? "あざやか" :
+    s > 0.3 ? "ややくすみ" : "くすみ";
+
+  return {hue, bright, vivid, v, s};
 }
 
-function mix(a,b,ra,rb){
-  if(b==="0"){
-    return [
-      a[0]+(255-a[0])*rb,
-      a[1]+(255-a[1])*rb,
-      a[2]+(255-a[2])*rb
-    ];
-  }
-  return [
-    a[0]*ra+b[0]*rb,
-    a[1]*ra+b[1]*rb,
-    a[2]*ra+b[2]*rb
-  ];
-}
+/* ===== 表示 ===== */
+function judge(rgb){
+  const a = analyzeColor(rgb);
 
-/* ===== 判定 ===== */
-function judge(t){
-  let best={d:9999};
-  const keys=Object.keys(copics).filter(c=>c!=="0");
+  const percent = Math.round((a.s * 0.6 + a.v / 255 * 0.4) * 100);
 
-  // 単色
-  keys.forEach(c=>{
-    const d=dist(t,copics[c]);
-    if(d<best.d) best={type:"単色",d,c};
-  });
-
-  // 混色・薄め
-  for(let i=0;i<keys.length;i++){
-    for(let j=i+1;j<keys.length;j++){
-      ratios.forEach(r=>{
-        let m=mix(copics[keys[i]],copics[keys[j]],r.a,r.b);
-        let d=dist(t,m);
-        if(d<best.d){
-          best={
-            type:"混色",
-            d,
-            c1:keys[i],
-            c2:keys[j],
-            r1:r.a*10,
-            r2:r.b*10
-          };
-        }
-
-        m=mix(copics[keys[i]],"0",r.a,r.b);
-        d=dist(t,m);
-        if(d<best.d){
-          best={
-            type:"薄め",
-            d,
-            c1:keys[i],
-            r1:r.a*10,
-            r2:r.b*10
-          };
-        }
-      });
-    }
-  }
-
-  const p=Math.max(0,Math.round(100-best.d/4));
-  let html="";
-
-  if(best.type==="単色"){
-    html=`🖌 単色が一番近い<br><b>${best.c}</b>`;
-  }else if(best.type==="薄め"){
-    html=`🖌 薄めた方が近い<br>
-      先に <b>${best.c1}</b>（${best.r1}）<br>
-      あとで <b>0</b>（${best.r2}）`;
-  }else{
-    html=`🖌 混色した方が近い<br>
-      先に <b>${best.c1}</b>（${best.r1}）<br>
-      あとで <b>${best.c2}</b>（${best.r2}）`;
-  }
-
-  document.getElementById("result").style.display="block";
-  document.getElementById("text").innerHTML=html;
-  document.getElementById("bar").style.width=p+"%";
-  document.getElementById("percent").textContent=`似てる度 ${p}%`;
+  document.getElementById("result").style.display = "block";
+  document.getElementById("text").innerHTML = `
+    ✏️ 色鉛筆向け分析<br>
+    <b>${a.hue}</b><br>
+    ${a.bright}・${a.vivid}
+  `;
+  document.getElementById("bar").style.width = percent + "%";
+  document.getElementById("percent").textContent =
+    `色のはっきり度 ${percent}%`;
 }
 </script>
 
