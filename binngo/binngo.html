@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>！ビンゴマシーン！</title>
+    <style>
+        :root {
+            --bg-color: #e7ca3b;
+            --panel-color: #162430;
+            --accent-gold: #bf6600;
+            --text-white: #ffffff;
+            --hit-color: #bf6600;
+            --grid-text: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-white);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .top-container {
+            display: flex;
+            width: 100%;
+            max-width: 1000px;
+            gap: 20px;
+            height: 220px;
+            margin-bottom: 20px;
+        }
+
+        .main-number-box {
+            flex: 2;
+            background: var(--panel-color);
+            border: 2px solid var(--accent-gold);
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .main-number-box::before {
+            content: "NOW";
+            position: absolute;
+            top: 10px; left: 15px;
+            color: var(--accent-gold);
+            font-weight: bold; font-size: 14px;
+        }
+
+        #current-number {
+            font-size: 160px;
+            font-weight: 800;
+            line-height: 1;
+            color: var(--text-white);
+        }
+
+        .recent-box {
+            flex: 1;
+            background: var(--panel-color);
+            border: 2px solid var(--accent-gold);
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            gap: 10px;
+        }
+
+        .recent-item {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #2c3e50;
+            padding-bottom: 5px;
+            font-size: 18px;
+        }
+        .recent-item .label { color: var(--grid-text); font-size: 12px; }
+        .recent-item .val { color: var(--accent-gold); font-weight: bold; }
+
+        .bingo-board {
+            background: var(--panel-color);
+            padding: 15px;
+            border-radius: 10px;
+            width: 100%;
+            max-width: 1000px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .board-row { display: flex; gap: 5px; align-items: center; }
+
+        .row-label {
+            width: 30px; font-size: 24px; font-weight: 900;
+            color: var(--accent-gold); text-align: center;
+        }
+
+        .numbers-row {
+            display: grid;
+            grid-template-columns: repeat(15, 1fr);
+            gap: 5px; flex: 1;
+        }
+
+        .cell {
+            background: #0b1218;
+            aspect-ratio: 1.2;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; font-weight: bold;
+            color: var(--grid-text); border-radius: 4px;
+        }
+
+        .cell.hit { background: var(--hit-color); color: white; }
+
+        .bottom-controls {
+            margin-top: auto;
+            display: flex; width: 100%; max-width: 1000px;
+            gap: 20px; align-items: flex-end;
+        }
+
+        #draw-btn {
+            flex: 3; height: 80px; font-size: 30px; font-weight: bold;
+            background: var(--accent-gold); color: var(--bg-color);
+            border: none; border-radius: 10px; cursor: pointer;
+        }
+
+        .survivor-control { flex: 1; text-align: center; }
+        .minus-btn {
+            width: 100%; padding: 10px; background: transparent;
+            border: 1px solid var(--grid-text); color: var(--grid-text);
+            cursor: pointer; border-radius: 5px;
+        }
+        #status { font-size: 40px; font-weight: bold; color: var(--hit-color); }
+    </style>
+</head>
+<body>
+
+    <div class="top-container">
+        <div class="main-number-box">
+            <div id="current-number">--</div>
+        </div>
+        <div class="recent-box">
+            <div style="font-size: 12px; color: var(--accent-gold); margin-bottom: 5px;">RECENT LOG</div>
+            <div id="recent-list"></div>
+        </div>
+    </div>
+
+    <div class="bingo-board" id="board"></div>
+
+    <div class="bottom-controls">
+        <div class="survivor-control">
+            <div style="font-size: 11px; color: #000000;">SURVIVORS <span style="font-size: 9px;">(残り人数)</span></div>
+            <div id="status">34</div>
+            <button class="minus-btn" onclick="decrementSurvivor()">BINGO! -1</button>
+        </div>
+        <button id="draw-btn" onclick="drawNumber()">NEXT NUMBER</button>
+    </div>
+
+<script>
+    // --- いかさま用カード設定 ---
+    const cardAvoid1 = [[5, 26, 32, 51, 75], [10, 23, 44, 58, 65], [1, 24, 0, 55, 63], [15, 30, 37, 59, 68], [7, 19, 33, 50, 74]];
+    const cardAvoid2 = [[7, 18, 35, 50, 68], [4, 24, 41, 56, 66], [12, 22, 0, 51, 75], [11, 25, 36, 58, 63], [14, 17, 44, 53, 72]];
+    const cardWin = [[15, 16, 43, 57, 65], [11, 27, 45, 49, 63], [5, 23, 0, 54, 71], [1, 24, 41, 59, 74], [10, 29, 37, 46, 62]];
+
+    let drawnNumbers = new Set([0]);
+    let history = [];
+    let pool = Array.from({length: 75}, (_, i) => i + 1);
+    let survivorCount = 34;
+
+    // ボード初期化
+    const labels = ['B', 'I', 'N', 'G', 'O'];
+    const board = document.getElementById('board');
+    labels.forEach((label, idx) => {
+        const row = document.createElement('div');
+        row.className = 'board-row';
+        row.innerHTML = `<div class="row-label">${label}</div>`;
+        const numbersDiv = document.createElement('div');
+        numbersDiv.className = 'numbers-row';
+        for(let i = 1; i <= 15; i++) {
+            const num = (idx * 15) + i;
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.id = `cell-${num}`;
+            cell.innerText = num;
+            numbersDiv.appendChild(cell);
+        }
+        row.appendChild(numbersDiv);
+        board.appendChild(row);
+    });
+
+    // ビンゴ判定
+    function checkBingo(targetCard, testNum) {
+        const nextSet = new Set(drawnNumbers);
+        if (testNum !== undefined) nextSet.add(testNum);
+        
+        const lines = [];
+        // 横・縦
+        for (let i = 0; i < 5; i++) {
+            lines.push(targetCard[i]); // 横
+            lines.push([targetCard[0][i], targetCard[1][i], targetCard[2][i], targetCard[3][i], targetCard[4][i]]); // 縦
+        }
+        // 斜め
+        lines.push([targetCard[0][0], targetCard[1][1], targetCard[2][2], targetCard[3][3], targetCard[4][4]]);
+        lines.push([targetCard[0][4], targetCard[1][3], targetCard[2][2], targetCard[3][1], targetCard[4][0]]);
+
+        return lines.some(line => line.every(num => nextSet.has(num)));
+    }
+
+    function decrementSurvivor() {
+        if (survivorCount > 0) {
+            survivorCount--;
+            document.getElementById('status').innerText = survivorCount;
+        }
+    }
+
+    function updateRecent() {
+        const list = document.getElementById('recent-list');
+        list.innerHTML = '';
+        const recent = history.slice(1, 6);
+        recent.forEach((num, i) => {
+            list.innerHTML += `<div class="recent-item"><span class="label">${i+1}個前</span><span class="val">${num}</span></div>`;
+        });
+    }
+
+    function drawNumber() {
+        if (pool.length === 0) return;
+
+        // シャッフル
+        pool.sort(() => Math.random() - 0.5);
+
+        let selectedIdx = -1;
+
+        // 1. ターゲット(Win)を脱落させ、かつ身内が安全な数字を探す
+        for (let i = 0; i < pool.length; i++) {
+            if (checkBingo(cardWin, pool[i]) && !checkBingo(cardAvoid1, pool[i]) && !checkBingo(cardAvoid2, pool[i])) {
+                selectedIdx = i;
+                break;
+            }
+        }
+
+        // 2. なければ、身内が安全な数字を適当に選ぶ
+        if (selectedIdx === -1) {
+            for (let i = 0; i < pool.length; i++) {
+                if (!checkBingo(cardAvoid1, pool[i]) && !checkBingo(cardAvoid2, pool[i])) {
+                    selectedIdx = i;
+                    break;
+                }
+            }
+        }
+
+        // 3. 最悪の場合（身内が死ぬ）
+        if (selectedIdx === -1) selectedIdx = 0;
+
+        const num = pool.splice(selectedIdx, 1)[0];
+        drawnNumbers.add(num);
+        history.unshift(num);
+
+        // UI更新
+        document.getElementById('current-number').innerText = num;
+        const cell = document.getElementById(`cell-${num}`);
+        if (cell) cell.classList.add('hit');
+        updateRecent();
+
+        if (pool.length === 0) {
+            const btn = document.getElementById('draw-btn');
+            btn.disabled = true;
+            btn.innerText = "END";
+            btn.style.background = "#555";
+        }
+    }
+</script>
+</body>
+</html>
